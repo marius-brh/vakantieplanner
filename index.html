@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Vakantie Planner</title>
+<!-- PWA: installable on iOS/iPadOS/macOS/Android -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1c1a17">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vakantie">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+:root{
+  --ink:#1c1a17;--ink2:#5a5650;--ink3:#9a9590;
+  --paper:#faf8f4;--cream:#f2ede4;--card:#fff;--border:#e5dfd5;
+  --w1:#c47c5a;--w1l:#fdf3ee;--w2:#4a7c59;--w2l:#eef6f1;
+  --wr:#5a6ea0;--wrl:#eef0f8;--r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{min-height:100%;font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);}
+.leaflet-pane,.leaflet-top,.leaflet-bottom,.leaflet-control{z-index:400!important;}
+.leaflet-popup-pane{z-index:450!important;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.25s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:1.4rem 1.1rem 2rem;transform:translateY(40px);transition:transform 0.3s ease;max-height:92vh;overflow-y:auto;}
+.modal-overlay.open .modal{transform:translateY(0);}
+.modal-title{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:400;margin-bottom:1.1rem;display:flex;justify-content:space-between;align-items:center;}
+.modal-close{background:var(--cream);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:0.95rem;color:var(--ink2);display:flex;align-items:center;justify-content:center;}
+.form-row{margin-bottom:0.9rem;}
+.form-row label{display:block;font-size:0.73rem;font-weight:500;color:var(--ink2);margin-bottom:0.3rem;}
+.form-row input,.form-row textarea,.form-row select{width:100%;font-family:'DM Sans',sans-serif;font-size:0.88rem;padding:0.6rem 0.75rem;border:1.5px solid var(--border);border-radius:10px;background:var(--paper);color:var(--ink);outline:none;transition:border-color 0.15s;-webkit-appearance:none;}
+.form-row input:focus,.form-row textarea:focus,.form-row select:focus{border-color:var(--w1);}
+.form-row textarea{resize:vertical;min-height:65px;line-height:1.5;}
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:0.7rem;}
+.form-actions{display:flex;gap:0.55rem;margin-top:1.2rem;}
+.btn-primary{flex:1;background:var(--ink);color:#fff;border:none;border-radius:10px;padding:0.7rem;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:500;cursor:pointer;}
+.btn-secondary{background:var(--cream);border:none;border-radius:10px;padding:0.7rem 0.9rem;font-family:'DM Sans',sans-serif;font-size:0.82rem;cursor:pointer;color:var(--ink2);}
+.btn-danger{background:none;border:1.5px solid #e74c3c;color:#e74c3c;border-radius:10px;padding:0.7rem 0.9rem;font-family:'DM Sans',sans-serif;font-size:0.82rem;cursor:pointer;}
+.frm-sep{font-size:0.68rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.05em;margin:1rem 0 0.6rem;border-top:1px solid var(--border);padding-top:0.9rem;}
+
+/* ── HOME SCREEN ── */
+#home-screen{min-height:100vh;display:flex;flex-direction:column;}
+.home-header{background:var(--ink);color:#fff;padding:2rem 1.2rem 1.5rem;position:relative;overflow:hidden;}
+.home-header::after{content:'';position:absolute;right:-50px;top:-50px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,0.04);}
+.home-header h1{font-family:'Playfair Display',serif;font-size:2rem;font-weight:400;line-height:1.15;}
+.home-header h1 em{color:var(--w1);font-style:italic;}
+.home-header p{font-size:0.82rem;color:rgba(255,255,255,0.6);margin-top:0.4rem;}
+.home-sync{font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:0.6rem;}
+.home-body{flex:1;padding:1.2rem 1rem 4rem;}
+.section-title{font-size:0.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;margin:1.2rem 0 0.7rem;}
+.trip-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:0.75rem;overflow:hidden;cursor:pointer;transition:border-color 0.15s;}
+.trip-card:hover{border-color:var(--w1);}
+.trip-card-body{padding:0.9rem 1rem;}
+.trip-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;}
+.trip-card-name{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:400;}
+.trip-status{font-size:0.65rem;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
+.status-planned{background:#eef0f8;color:#3a4f82;}
+.status-active{background:#eef6f1;color:#1a5c32;}
+.status-archived{background:#f2ede4;color:#5a5650;}
+.trip-card-meta{font-size:0.76rem;color:var(--ink2);margin-top:0.3rem;}
+.trip-card-footer{padding:0.5rem 1rem;background:var(--paper);border-top:1px solid var(--border);display:flex;gap:0.5rem;align-items:center;}
+.trip-card-stat{font-size:0.68rem;color:var(--ink3);}
+.new-trip-btn{display:flex;align-items:center;justify-content:center;gap:0.5rem;width:100%;padding:0.85rem;background:none;border:1.5px dashed var(--border);border-radius:var(--r);color:var(--ink2);font-family:'DM Sans',sans-serif;font-size:0.85rem;cursor:pointer;transition:all 0.15s;margin-top:0.5rem;}
+.new-trip-btn:hover{border-color:var(--w1);color:var(--w1);background:var(--w1l);}
+
+/* ── PLANNER SCREEN ── */
+#planner-screen{display:none;flex-direction:column;min-height:100vh;}
+.planner-header{background:var(--ink);color:#fff;padding:0.9rem 1rem;display:flex;align-items:center;gap:0.8rem;flex-shrink:0;}
+.back-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);color:#fff;font-size:0.75rem;padding:0.3rem 0.65rem;border-radius:8px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.planner-header-info{flex:1;min-width:0;}
+.planner-header-info h2{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:400;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.planner-header-info .ph-meta{font-size:0.68rem;color:rgba(255,255,255,0.6);margin-top:1px;}
+.ph-sync{font-size:0.68rem;color:rgba(255,255,255,0.5);}
+.archive-badge{font-size:0.65rem;font-weight:600;background:#f2ede4;color:#5a5650;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+
+.week-nav{display:flex;background:var(--cream);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;overflow-x:auto;scrollbar-width:none;}
+.week-nav::-webkit-scrollbar{display:none;}
+.week-tab{flex:1;min-width:55px;padding:0.7rem 0.3rem;font-size:0.72rem;font-weight:500;border:none;background:none;cursor:pointer;color:var(--ink2);border-bottom:3px solid transparent;transition:all 0.15s;text-align:center;line-height:1.3;white-space:nowrap;}
+.week-tab .tl{font-size:0.72rem;font-weight:500;}
+.week-tab .ts{font-size:0.6rem;color:var(--ink3);margin-top:1px;}
+.week-tab.w1.active{color:var(--w1);border-bottom-color:var(--w1);background:#fff;}
+.week-tab.w2.active{color:var(--w2);border-bottom-color:var(--w2);background:#fff;}
+.week-tab.wroute.active{color:var(--wr);border-bottom-color:var(--wr);background:#fff;}
+.week-tab.wmap.active{color:#1a73e8;border-bottom-color:#1a73e8;background:#fff;}
+.week-tab.wsettings.active{color:var(--ink);border-bottom-color:var(--ink);background:#fff;}
+.week-tab:not(.active):hover{background:rgba(0,0,0,0.03);}
+
+#planner-body{padding:0.9rem 0.9rem 5rem;}
+.week-section{display:none;}
+.week-section.active{display:block;}
+.week-header{margin-bottom:0.9rem;padding:0.8rem 1rem;background:var(--card);border-radius:var(--r);border:1px solid var(--border);}
+.week-header h3{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:400;}
+.week-header .ws{font-size:0.74rem;color:var(--ink2);margin-top:0.2rem;}
+
+/* DAY CARD */
+.day-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:0.7rem;overflow:hidden;}
+.day-head{display:flex;align-items:center;gap:0.65rem;padding:0.7rem 0.85rem;cursor:pointer;user-select:none;}
+.day-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.w1 .day-dot{background:var(--w1);}
+.w2 .day-dot{background:var(--w2);}
+.day-info{flex:1;min-width:0;}
+.day-name{font-size:0.83rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.day-date{font-size:0.68rem;color:var(--ink3);margin-top:1px;}
+.day-actions{display:flex;align-items:center;gap:0.35rem;}
+.icon-btn{background:none;border:1px solid var(--border);border-radius:7px;cursor:pointer;padding:0.25rem 0.45rem;font-size:0.67rem;color:var(--ink2);white-space:nowrap;}
+.icon-btn:hover{background:var(--cream);}
+.chev{font-size:0.6rem;color:var(--ink3);transition:transform 0.2s;flex-shrink:0;}
+.chev.open{transform:rotate(180deg);}
+.day-body{border-top:1px solid var(--border);}
+
+/* DAY NOTE */
+.day-note-area{padding:0.6rem 0.85rem;border-bottom:1px solid var(--border);background:#fffdf9;}
+.day-note-label{font-size:0.65rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem;}
+.day-note-text{font-size:0.8rem;color:var(--ink2);line-height:1.55;font-style:italic;}
+.day-note-edit{width:100%;font-family:'DM Sans',sans-serif;font-size:0.82rem;padding:0.4rem 0.5rem;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--ink);outline:none;resize:vertical;min-height:55px;line-height:1.5;}
+.day-note-edit:focus{border-color:var(--w1);}
+.day-note-btn{font-size:0.7rem;background:var(--ink);color:#fff;border:none;border-radius:6px;padding:0.28rem 0.65rem;cursor:pointer;margin-top:0.3rem;}
+.day-note-add{font-size:0.72rem;color:var(--ink3);cursor:pointer;font-style:italic;padding:0.4rem 0;}
+.day-note-add:hover{color:var(--w1);}
+
+/* ACTIVITY */
+.activity{display:flex;gap:0.65rem;padding:0.7rem 0.85rem;border-bottom:1px solid var(--border);align-items:flex-start;}
+.activity:last-child{border-bottom:none;}
+.act-time{font-size:0.7rem;color:var(--ink3);min-width:36px;padding-top:2px;}
+.act-body{flex:1;min-width:0;}
+.act-name{font-size:0.87rem;font-weight:500;margin-bottom:0.12rem;}
+.act-desc{font-size:0.76rem;color:var(--ink2);line-height:1.5;margin-bottom:0.38rem;}
+.act-foot{display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center;}
+.tag{font-size:0.63rem;font-weight:500;padding:0.15rem 0.45rem;border-radius:20px;}
+.tag-eten{background:#fef3e2;color:#7c4e0a;}
+.tag-bezicht{background:#eef6f1;color:#1a5c32;}
+.tag-cultuur{background:#f0e8ff;color:#4c1a9e;}
+.tag-natuur{background:#e0f7f4;color:#065f46;}
+.tag-reis{background:#f1f4f9;color:#2c3e60;}
+.tag-rust{background:#fff0f3;color:#8c1230;}
+.tag-stop{background:#eef0f8;color:#3a4f82;}
+.tag-overnachting{background:#f3eeff;color:#5b21b6;}
+.tag-start{background:#e6f4ea;color:#1e6b3c;}
+.tag-eind{background:#fdecea;color:#9b1c1c;}
+.tag-highlight{background:#fffbeb;color:#92400e;}
+.nav-btn{display:inline-flex;align-items:center;gap:0.28rem;font-size:0.67rem;font-weight:600;background:#fff;color:#1a73e8;border:1.5px solid #1a73e8;padding:0.2rem 0.5rem;border-radius:6px;text-decoration:none;flex-shrink:0;}
+.act-edit-btn{background:none;border:none;color:var(--ink3);cursor:pointer;font-size:0.7rem;padding:0.1rem 0.3rem;border-radius:4px;margin-left:auto;}
+.highlight-star{background:none;border:none;cursor:pointer;font-size:0.85rem;padding:0.1rem 0.2rem;margin-left:auto;color:var(--ink3);transition:color 0.15s;}
+.highlight-star.on{color:#d97706;}
+.empty-day{padding:0.9rem;text-align:center;color:var(--ink3);font-size:0.79rem;}
+.add-act-btn{display:inline-flex;align-items:center;gap:0.28rem;margin-top:0.4rem;font-size:0.75rem;color:var(--w1);background:none;border:1.5px dashed var(--w1);padding:0.35rem 0.8rem;border-radius:7px;cursor:pointer;}
+.day-title-edit{display:flex;gap:0.35rem;padding:0.5rem 0.85rem;border-top:1px solid var(--border);background:var(--paper);}
+.day-title-edit input{flex:1;font-family:'DM Sans',sans-serif;font-size:0.82rem;padding:0.42rem 0.6rem;border:1.5px solid var(--border);border-radius:7px;background:#fff;color:var(--ink);outline:none;}
+.day-title-edit button{background:var(--ink);color:#fff;border:none;border-radius:7px;padding:0.42rem 0.7rem;font-size:0.74rem;cursor:pointer;}
+.dte-c{background:var(--cream)!important;color:var(--ink2)!important;}
+
+/* ROUTE */
+.route-leg{background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:1rem;overflow:hidden;}
+.route-leg-head{padding:0.65rem 0.85rem;background:var(--wrl);border-bottom:1px solid #c5cadc;display:flex;align-items:center;justify-content:space-between;}
+.route-leg-title{font-size:0.83rem;font-weight:500;color:var(--wr);}
+.route-add-btn{font-size:0.68rem;color:var(--wr);background:none;border:1.5px dashed var(--wr);padding:0.25rem 0.65rem;border-radius:7px;cursor:pointer;}
+.route-stop{display:flex;gap:0.65rem;padding:0.7rem 0.85rem;border-bottom:1px solid var(--border);align-items:flex-start;}
+.route-stop:last-child{border-bottom:none;}
+.route-endpoint{background:var(--paper);}
+.stop-num{width:20px;height:20px;border-radius:50%;background:var(--wr);color:#fff;font-size:0.62rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.stop-start{background:#1e6b3c;}
+.stop-eind{background:#9b1c1c;}
+.route-empty{padding:0.9rem;text-align:center;color:var(--ink3);font-size:0.79rem;}
+
+/* MAP */
+#map-wrapper{display:none;flex-direction:column;flex:1;}
+#map-wrapper.active{display:flex;}
+.map-controls{padding:0.6rem 0.85rem;background:var(--card);border-bottom:1px solid var(--border);display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;flex-shrink:0;}
+.mfbtn{font-size:0.68rem;font-weight:500;padding:0.25rem 0.65rem;border-radius:20px;border:1.5px solid var(--border);background:var(--paper);cursor:pointer;color:var(--ink2);white-space:nowrap;}
+.mfbtn.on-all{background:#e8f0fe;border-color:#1a73e8;color:#1a73e8;}
+.mfbtn.on-w1{background:var(--w1l);border-color:var(--w1);color:var(--w1);}
+.mfbtn.on-w2{background:var(--w2l);border-color:var(--w2);color:var(--w2);}
+.mfbtn.on-route{background:var(--wrl);border-color:var(--wr);color:var(--wr);}
+.map-st{font-size:0.68rem;color:var(--ink3);margin-left:auto;font-style:italic;}
+#leaflet-map{flex:1;min-height:400px;width:100%;}
+.map-empty{padding:3rem 1.5rem;text-align:center;color:var(--ink3);font-size:0.84rem;line-height:1.8;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+
+/* HIGHLIGHTS / ARCHIVE */
+.highlights-section{margin-bottom:1.5rem;}
+.hl-card{background:var(--card);border:1px solid #f6d860;border-radius:var(--r);padding:0.85rem 1rem;margin-bottom:0.6rem;}
+.hl-name{font-size:0.9rem;font-weight:500;}
+.hl-meta{font-size:0.72rem;color:var(--ink2);margin-top:0.2rem;}
+.hl-desc{font-size:0.78rem;color:var(--ink2);margin-top:0.35rem;line-height:1.5;}
+.archive-note-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:0.85rem 1rem;margin-bottom:0.6rem;}
+.archive-day-title{font-size:0.8rem;font-weight:500;color:var(--ink2);}
+.archive-note-text{font-size:0.82rem;color:var(--ink);margin-top:0.3rem;line-height:1.6;font-style:italic;}
+.archive-banner{background:var(--cream);border:1px solid var(--border);border-radius:var(--r);padding:0.7rem 1rem;font-size:0.78rem;color:var(--ink2);margin-bottom:1rem;display:flex;align-items:center;gap:0.6rem;}
+
+/* SETTINGS PANEL */
+.settings-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:1rem;margin-bottom:1rem;}
+.settings-panel h4{font-size:0.85rem;font-weight:500;margin-bottom:0.9rem;}
+.sp-row{margin-bottom:0.85rem;}
+.sp-row label{display:block;font-size:0.72rem;font-weight:500;color:var(--ink2);margin-bottom:0.28rem;}
+.sp-row input,.sp-row textarea{width:100%;font-family:'DM Sans',sans-serif;font-size:0.86rem;padding:0.55rem 0.7rem;border:1.5px solid var(--border);border-radius:9px;background:var(--paper);color:var(--ink);outline:none;}
+.sp-row input:focus,.sp-row textarea:focus{border-color:var(--w1);}
+.sp-2col{display:grid;grid-template-columns:1fr 1fr;gap:0.65rem;}
+.sp-preview{font-size:0.73rem;color:#4a7c59;min-height:1.1em;margin-bottom:0.3rem;}
+.sp-actions{display:flex;gap:0.5rem;margin-top:1rem;}
+.sp-save{flex:1;background:var(--ink);color:#fff;border:none;border-radius:9px;padding:0.65rem;font-family:'DM Sans',sans-serif;font-size:0.86rem;cursor:pointer;}
+.sp-archive-btn{background:none;border:1.5px solid var(--wr);color:var(--wr);border-radius:9px;padding:0.65rem 0.9rem;font-family:'DM Sans',sans-serif;font-size:0.8rem;cursor:pointer;}
+.sp-delete-btn{background:none;border:1.5px solid #e74c3c;color:#e74c3c;border-radius:9px;padding:0.65rem 0.9rem;font-family:'DM Sans',sans-serif;font-size:0.8rem;cursor:pointer;}
+.danger-zone{margin-top:0.5rem;padding:0.85rem 1rem;background:#fff5f5;border:1px solid #fcd0d0;border-radius:var(--r);}
+.danger-zone h4{font-size:0.82rem;color:#9b1c1c;margin-bottom:0.6rem;}
+
+/* Leaflet popup */
+.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 4px 20px rgba(0,0,0,0.15)!important;border:none!important;font-family:'DM Sans',sans-serif!important;}
+.leaflet-popup-content{margin:10px 12px 9px!important;min-width:155px;max-width:220px;}
+.lp-badge{font-size:0.63rem;font-weight:500;padding:2px 7px;border-radius:10px;display:inline-block;margin-bottom:4px;}
+.lp-w1{background:#fdf3ee;color:#c47c5a;}.lp-w2{background:#eef6f1;color:#4a7c59;}.lp-route{background:#eef0f8;color:#3a4f82;}.lp-hl{background:#fffbeb;color:#92400e;}
+.lp-name{font-weight:500;font-size:0.86rem;margin-bottom:2px;color:#1c1a17;line-height:1.3;}
+.lp-sub{font-size:0.69rem;color:#9a9590;margin-bottom:5px;}
+.lp-desc{font-size:0.73rem;color:#5a5650;line-height:1.4;margin-bottom:6px;}
+.lp-travel{font-size:0.71rem;font-weight:500;color:#1c1a17;background:#f2ede4;border-radius:5px;padding:2px 6px;display:inline-block;margin-bottom:5px;}
+.lp-nav{display:inline-flex;align-items:center;gap:3px;font-size:0.69rem;font-weight:600;color:#1a73e8;border:1.5px solid #1a73e8;padding:3px 8px;border-radius:6px;text-decoration:none;}
+
+.note-strip{margin-top:1.5rem;background:var(--cream);border-radius:var(--r);padding:0.85rem 1rem;font-size:0.74rem;color:var(--ink2);line-height:1.6;border:1px solid var(--border);}
+
+@media(min-width:600px){
+  #planner-body{padding:1.1rem 1.4rem 5rem;}
+  .modal{border-radius:16px;margin-bottom:2rem;}
+  #leaflet-map{min-height:calc(100vh - 190px);}
+  .home-body{max-width:600px;margin:0 auto;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ HOME SCREEN ══════════════ -->
+<div id="home-screen" style="display:none">
+  <div class="home-header">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">
+      <div style="flex:1;min-width:0;">
+        <h1>Mijn <em>vakanties</em></h1>
+        <p>Plan, beleef en bewaar je reizen</p>
+      </div>
+      <button id="user-menu-btn" onclick="doLogout()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);color:#fff;font-size:0.72rem;padding:0.3rem 0.7rem;border-radius:8px;cursor:pointer;white-space:nowrap;">Uitloggen</button>
+    </div>
+    <div class="home-sync" id="home-sync">verbinden…</div>
+    <div id="user-info" style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:0.3rem;"></div>
+  </div>
+  <div class="home-body">
+    <div id="active-trips-section">
+      <div class="section-title">Aankomende &amp; actieve reizen</div>
+      <div id="active-trips-list"></div>
+    </div>
+    <div id="archived-trips-section">
+      <div class="section-title">Archief</div>
+      <div id="archived-trips-list"></div>
+    </div>
+    <button class="new-trip-btn" onclick="openNewTrip()">+ Nieuwe vakantie aanmaken</button>
+    <div class="note-strip"><strong>☁ Automatisch gesynchroniseerd</strong> via Supabase — open dit bestand op laptop, telefoon of tablet en alles is altijd up-to-date.</div>
+  </div>
+</div>
+
+<!-- ══════════════ PLANNER SCREEN ══════════════ -->
+<div id="planner-screen">
+  <div class="planner-header">
+    <button class="back-btn" onclick="goHome()">← Terug</button>
+    <div class="planner-header-info">
+      <h2 id="ph-title">Vakantie</h2>
+      <div class="ph-meta"><span id="ph-dates">—</span> &nbsp;·&nbsp; <span id="ph-sync" class="ph-sync">—</span></div>
+    </div>
+    <span id="ph-archive-badge" class="archive-badge" style="display:none">Archief</span>
+  </div>
+  <nav class="week-nav" id="planner-nav">
+    <button class="week-tab w1 active" id="ptab-w1" onclick="showPTab('w1',this)"><div class="tl">Week 1</div><div class="ts" id="ptab1-loc">—</div></button>
+    <button class="week-tab w2" id="ptab-w2" onclick="showPTab('w2',this)"><div class="tl">Week 2</div><div class="ts" id="ptab2-loc">—</div></button>
+    <button class="week-tab wroute" onclick="showPTab('route',this)"><div class="tl">🚗 Reis</div><div class="ts">Route</div></button>
+    <button class="week-tab wmap" onclick="showPTab('map',this)"><div class="tl">🗺 Kaart</div><div class="ts">Locaties</div></button>
+    <button class="week-tab" id="ptab-hl" onclick="showPTab('highlights',this)"><div class="tl">★ Tops</div><div class="ts">Hoogtepunten</div></button>
+    <button class="week-tab wsettings" onclick="showPTab('settings',this)"><div class="tl">⚙</div><div class="ts">Inst.</div></button>
+  </nav>
+
+  <div id="planner-body">
+    <!-- WEEK 1 -->
+    <section class="week-section w1 active" id="ps-w1">
+      <div class="week-header"><h3 id="pw1-title">Week 1</h3><div class="ws" id="pw1-sub">—</div></div>
+      <div id="days-w1"></div>
+    </section>
+    <!-- WEEK 2 -->
+    <section class="week-section" id="ps-w2">
+      <div class="week-header"><h3 id="pw2-title">Week 2</h3><div class="ws" id="pw2-sub">—</div></div>
+      <div id="days-w2"></div>
+    </section>
+    <!-- ROUTE -->
+    <section class="week-section" id="ps-route">
+      <div class="route-leg">
+        <div class="route-leg-head"><span class="route-leg-title">➜ Heenreis</span><button class="route-add-btn" onclick="openNewStop('heen')">+ Tussenstop</button></div>
+        <div id="ep-heen-start"></div><div id="stops-heen"></div><div id="ep-heen-eind"></div>
+      </div>
+      <div class="route-leg">
+        <div class="route-leg-head"><span class="route-leg-title">↩ Terugreis</span><button class="route-add-btn" onclick="openNewStop('terug')">+ Tussenstop</button></div>
+        <div id="ep-terug-start"></div><div id="stops-terug"></div><div id="ep-terug-eind"></div>
+      </div>
+    </section>
+    <!-- MAP -->
+    <section class="week-section" id="ps-map" style="padding:0;margin:-0.9rem -0.9rem 0;">
+      <div id="map-wrapper">
+        <div class="map-controls">
+          <button class="mfbtn on-all" id="mf-all" onclick="setMapFilter('all')">Alles</button>
+          <button class="mfbtn" id="mf-w1" onclick="setMapFilter('w1')">● Week 1</button>
+          <button class="mfbtn" id="mf-w2" onclick="setMapFilter('w2')">● Week 2</button>
+          <button class="mfbtn" id="mf-route" onclick="setMapFilter('route')">● Reis</button>
+          <button class="mfbtn" id="mf-hl" onclick="setMapFilter('highlights')">★ Tops</button>
+          <span class="map-st" id="map-st">—</span>
+        </div>
+        <div id="leaflet-map"></div>
+        <div id="map-empty" class="map-empty" style="display:none"><strong>Geen locaties</strong>Vul locaties in bij activiteiten of reistops.</div>
+      </div>
+    </section>
+    <!-- HIGHLIGHTS -->
+    <section class="week-section" id="ps-highlights">
+      <div class="highlights-section" id="hl-list"></div>
+      <div class="archive-note-card" style="background:var(--cream);border-color:var(--border);">
+        <div style="font-size:0.76rem;color:var(--ink2);line-height:1.6;">
+          Markeer activiteiten als hoogtepunt met de ★ knop — ze verschijnen hier en op de kaart als speciale pin.
+        </div>
+      </div>
+    </section>
+    <!-- SETTINGS -->
+    <section class="week-section" id="ps-settings">
+      <div class="settings-panel">
+        <h4>Reis details</h4>
+        <div class="sp-row"><label>Naam van de reis</label><input type="text" id="sp-name" placeholder="bijv. Italië 2026"></div>
+        <div class="sp-2col">
+          <div class="sp-row"><label>Begindatum</label><input type="date" id="sp-start" onchange="spPreview()"></div>
+          <div class="sp-row"><label>Einddatum</label><input type="date" id="sp-end" onchange="spPreview()"></div>
+        </div>
+        <div class="sp-preview" id="sp-preview"></div>
+        <div class="sp-2col">
+          <div class="sp-row"><label>Week 1 — naam</label><input type="text" id="sp-loc1" placeholder="bijv. Rome"></div>
+          <div class="sp-row"><label>Week 2 — naam</label><input type="text" id="sp-loc2" placeholder="bijv. Nice"></div>
+        </div>
+        <div class="sp-2col">
+          <div class="sp-row"><label>Week 1 — camping</label><input type="text" id="sp-camp1" placeholder="Camping naam of adres"></div>
+          <div class="sp-row"><label>Week 2 — camping</label><input type="text" id="sp-camp2" placeholder="Camping naam of adres"></div>
+        </div>
+        <div class="sp-actions">
+          <button class="sp-save" onclick="saveTripSettings()">Opslaan</button>
+          <button class="sp-archive-btn" id="sp-archive-btn" onclick="toggleArchive()">Archiveer reis</button>
+        </div>
+      </div>
+      <div class="danger-zone">
+        <h4>Gevaarlijke zone</h4>
+        <button class="sp-delete-btn" onclick="deleteTrip()">Verwijder deze reis permanent</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ══════════════ MODALS ══════════════ -->
+<!-- New trip -->
+<div class="modal-overlay" id="newTripModal" onclick="if(event.target===this)closeNewTrip()">
+  <div class="modal">
+    <div class="modal-title"><span>Nieuwe vakantie</span><button class="modal-close" onclick="closeNewTrip()">✕</button></div>
+    <div class="form-row"><label>Naam</label><input type="text" id="nt-name" placeholder="bijv. Zomervakantie Italië 2027"></div>
+    <div class="form-2col">
+      <div class="form-row"><label>Begindatum</label><input type="date" id="nt-start"></div>
+      <div class="form-row"><label>Einddatum</label><input type="date" id="nt-end"></div>
+    </div>
+    <div class="form-row"><label>Week 1 — locatie</label><input type="text" id="nt-loc1" placeholder="bijv. Rome"></div>
+    <div class="form-row"><label>Week 2 — locatie</label><input type="text" id="nt-loc2" placeholder="bijv. Nice"></div>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeNewTrip()">Annuleren</button>
+      <button class="btn-primary" onclick="createTrip()">Aanmaken</button>
+    </div>
+  </div>
+</div>
+<!-- Activity -->
+<div class="modal-overlay" id="actModal" onclick="if(event.target===this)closeActModal()">
+  <div class="modal">
+    <div class="modal-title"><span id="act-modal-title">Activiteit</span><button class="modal-close" onclick="closeActModal()">✕</button></div>
+    <div class="form-2col">
+      <div class="form-row"><label>Tijdstip</label><input type="time" id="f-time"></div>
+      <div class="form-row"><label>Label</label>
+        <select id="f-tag">
+          <option value="bezicht">👁 Bezienswaard.</option><option value="eten">🍽 Eten</option>
+          <option value="cultuur">🏛 Cultuur</option><option value="natuur">🌿 Natuur</option>
+          <option value="reis">🚂 Vervoer</option><option value="rust">☀️ Vrije tijd</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row"><label>Naam</label><input type="text" id="f-name" placeholder="bijv. Colosseum"></div>
+    <div class="form-row"><label>Beschrijving / tips</label><textarea id="f-desc" placeholder="Omschrijving, tips..."></textarea></div>
+    <div class="form-row"><label>📍 Locatie (kaart &amp; navigatie)</label><input type="text" id="f-maps" placeholder="bijv. Colosseum Rome"></div>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeActModal()">Annuleren</button>
+      <button class="btn-danger" id="act-del-btn" onclick="deleteActivity()" style="display:none">Verwijder</button>
+      <button class="btn-primary" onclick="saveActivity()">Opslaan</button>
+    </div>
+  </div>
+</div>
+<!-- Route stop -->
+<div class="modal-overlay" id="stopModal" onclick="if(event.target===this)closeStopModal()">
+  <div class="modal">
+    <div class="modal-title"><span id="stop-modal-title">Stop</span><button class="modal-close" onclick="closeStopModal()">✕</button></div>
+    <div class="form-row"><label>Naam</label><input type="text" id="s-name" placeholder="bijv. Kinderdijk"></div>
+    <div class="form-row"><label>Beschrijving</label><textarea id="s-desc" placeholder="Openingstijden, tips..."></textarea></div>
+    <div class="form-row"><label>📍 Locatie</label><input type="text" id="s-maps" placeholder="bijv. Kinderdijk, Zuid-Holland"></div>
+    <div class="form-2col">
+      <div class="form-row"><label>Rijduur</label><input type="text" id="s-drive" placeholder="bijv. 2u 30m"></div>
+      <div class="form-row"><label>Label</label>
+        <select id="s-tag">
+          <option value="stop">🛑 Tussenstop</option><option value="overnachting">🌙 Overnachting</option>
+          <option value="bezicht">👁 Bezienswaard.</option><option value="eten">🍽 Eten</option>
+          <option value="natuur">🌿 Natuur</option><option value="cultuur">🏛 Cultuur</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeStopModal()">Annuleren</button>
+      <button class="btn-danger" id="stop-del-btn" onclick="deleteStop()" style="display:none">Verwijder</button>
+      <button class="btn-primary" onclick="saveStop()">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ── SUPABASE ──────────────────────────────────────────────
+// Config loaded from config.js (your own Supabase project, see README)
+const SB_URL=(window.VP_CONFIG||{}).supabaseUrl||'';
+const SB_KEY=(window.VP_CONFIG||{}).supabaseAnonKey||'';
+let SB_USER=null;  // current authenticated user
+let SB_TOKEN=null; // user's access token after login
+function sbHeaders(){return{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+(SB_TOKEN||SB_KEY)};}
+async function sbGet(key){if(!SB_URL||!SB_USER)return null;try{const r=await fetch(`${SB_URL}/rest/v1/planner?key=eq.${key}&select=value,updated_at&order=updated_at.desc&limit=1`,{headers:sbHeaders()});const d=await r.json();if(d&&d[0]?.value)return JSON.parse(d[0].value);}catch(e){}return null;}
+async function sbSet(key,val){if(!SB_URL||!SB_USER)return;try{await fetch(`${SB_URL}/rest/v1/planner`,{method:'POST',headers:{...sbHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:SB_USER.id,key,value:JSON.stringify(val)})});}catch(e){}}
+async function sbDel(key){if(!SB_URL||!SB_USER)return;try{await fetch(`${SB_URL}/rest/v1/planner?key=eq.${key}&user_id=eq.${SB_USER.id}`,{method:'DELETE',headers:sbHeaders()});}catch(e){}}
+let lastSave=0;
+function sbSubscribe(onMsg){if(!SB_URL||!SB_USER)return;try{const ws=new WebSocket(`${SB_URL}/realtime/v1/websocket?apikey=${SB_KEY}&vsn=1.0.0&token=${SB_TOKEN||SB_KEY}`);let hi;ws.onopen=()=>{ws.send(JSON.stringify({topic:'realtime:public:planner',event:'phx_join',payload:{config:{broadcast:{ack:false},presence:{key:''}},access_token:SB_TOKEN||SB_KEY},ref:'1'}));hi=setInterval(()=>ws.send(JSON.stringify({topic:'phoenix',event:'heartbeat',payload:{},ref:'hb'})),25000);};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if((m.event==='INSERT'||m.event==='UPDATE')&&Date.now()-lastSave>4000){const row=m.payload?.record||m.payload?.new;if(row?.key&&row?.value)onMsg(row.key,JSON.parse(row.value));}}catch(x){}};ws.onclose=()=>{clearInterval(hi);setTimeout(()=>sbSubscribe(onMsg),5000);};ws.onerror=()=>ws.close();}catch(e){}}
+
+// ── DATA MODEL ────────────────────────────────────────────
+// DB: key='trip_index' → {trips:[{id,name,startDate,endDate,loc1,loc2,status,...}]}
+//     key='trip_<id>'  → full trip data
+const LS_IDX='vp_trip_index';
+const LS_PFX='vp_trip_';
+
+function lsGet(k){try{const r=localStorage.getItem(k);return r?JSON.parse(r):null;}catch(e){return null;}}
+function lsSet(k,v){localStorage.setItem(k,JSON.stringify(v));}
+
+function defaultTrip(id,name,start,end,loc1,loc2){
+  return{id,name:name||'Nieuwe vakantie',startDate:start||'',endDate:end||'',loc1:loc1||'Locatie A',loc2:loc2||'Locatie B',camp1:'',camp2:'',status:'planned',days:{},route:{heen:[],terug:[],heenStart:{name:'',maps:''},heenEind:{name:'',maps:''},terugStart:{name:'',maps:''},terugEind:{name:'',maps:''}}};
+}
+function migrateOld(){
+  const old=lsGet('vakantie2026');
+  if(!old)return;
+  const idx=lsGet(LS_IDX);
+  if(idx&&idx.trips.length>0)return;
+  const id='trip_legacy';
+  const trip={...defaultTrip(id,old.tripName||'Italië 2026',old.startDate,old.endDate,old.loc1,old.loc2),...old,id,status:'planned'};
+  if(!trip.route)trip.route={heen:[],terug:[],heenStart:{name:'',maps:''},heenEind:{name:'',maps:''},terugStart:{name:'',maps:''},terugEind:{name:'',maps:''}};
+  lsSet(LS_IDX,{trips:[{id,name:trip.name,startDate:trip.startDate,endDate:trip.endDate,status:'planned'}]});
+  lsSet(LS_PFX+id,trip);
+  localStorage.removeItem('vakantie2026');
+}
+
+let TRIPS_INDEX=[];
+let CURRENT_TRIP=null;
+let CURRENT_TRIP_ID=null;
+let syncTimers={};
+
+function saveIndex(){lsSet(LS_IDX,{trips:TRIPS_INDEX});sbSet('trip_index',{trips:TRIPS_INDEX});}
+function saveTripData(id,data){lastSave=Date.now();lsSet(LS_PFX+id,data);clearTimeout(syncTimers[id]);syncTimers[id]=setTimeout(()=>sbSet('trip_'+id,data),800);setSyncLabel('✓ opgeslagen');}
+function setSyncLabel(t){const e=document.getElementById('ph-sync');if(e)e.textContent=t;const e2=document.getElementById('home-sync');if(e2)e2.textContent=t;}
+
+async function loadAll(){
+  migrateOld();
+  let idx=await sbGet('trip_index');
+  if(idx&&idx.trips){TRIPS_INDEX=idx.trips;lsSet(LS_IDX,idx);}
+  else{const li=lsGet(LS_IDX);TRIPS_INDEX=li?.trips||[];}
+  setSyncLabel('✓ gesynchroniseerd');
+  renderHome();
+  sbSubscribe((key,val)=>{
+    if(key==='trip_index'){TRIPS_INDEX=val.trips||[];lsSet(LS_IDX,val);renderHome();}
+    else if(key.startsWith('trip_')&&key===('trip_'+(CURRENT_TRIP_ID||''))){CURRENT_TRIP=val;lsSet(LS_PFX+CURRENT_TRIP_ID,val);renderPlanner();}
+  });
+}
+
+async function loadTrip(id){
+  let t=await sbGet('trip_'+id);
+  if(!t)t=lsGet(LS_PFX+id);
+  if(!t)t=defaultTrip(id);
+  if(!t.route)t.route={heen:[],terug:[]};
+  ['heenStart','heenEind','terugStart','terugEind'].forEach(k=>{if(!t.route[k])t.route[k]={name:'',maps:''};});
+  return t;
+}
+
+// ── HOME ──────────────────────────────────────────────────
+function renderHome(){
+  const active=TRIPS_INDEX.filter(t=>t.status!=='archived');
+  const arch=TRIPS_INDEX.filter(t=>t.status==='archived');
+  const al=document.getElementById('active-trips-list');
+  const arl=document.getElementById('archived-trips-list');
+  al.innerHTML=active.length?active.map(t=>tripCardHTML(t)).join(''):'<p style="font-size:0.8rem;color:var(--ink3);padding:0.5rem 0">Nog geen vakanties gepland.</p>';
+  arl.innerHTML=arch.length?arch.map(t=>tripCardHTML(t)).join(''):'<p style="font-size:0.8rem;color:var(--ink3);padding:0.5rem 0">Geen gearchiveerde reizen.</p>';
+  document.getElementById('archived-trips-section').style.display=arch.length?'block':'none';
+}
+function tripCardHTML(t){
+  const days=t.startDate&&t.endDate?Math.round((new Date(t.endDate)-new Date(t.startDate))/(864e5))+1:0;
+  const range=t.startDate&&t.endDate?fmtDateRange(t.startDate,t.endDate):'Datum niet ingesteld';
+  const statusLabel=t.status==='archived'?'Archief':t.status==='active'?'Actief':'Gepland';
+  const statusCls=t.status==='archived'?'status-archived':t.status==='active'?'status-active':'status-planned';
+  return`<div class="trip-card" onclick="openTrip('${t.id}')">
+    <div class="trip-card-body">
+      <div class="trip-card-top"><span class="trip-card-name">${t.name||'Naamloos'}</span><span class="trip-status ${statusCls}">${statusLabel}</span></div>
+      <div class="trip-card-meta">${range}</div>
+    </div>
+    <div class="trip-card-footer"><span class="trip-card-stat">${days?days+' dagen':''}</span>${t.loc1?`<span class="trip-card-stat">· ${t.loc1}${t.loc2?' → '+t.loc2:''}</span>`:''}</div>
+  </div>`;
+}
+
+function openNewTrip(){document.getElementById('nt-name').value='';document.getElementById('nt-start').value='';document.getElementById('nt-end').value='';document.getElementById('nt-loc1').value='';document.getElementById('nt-loc2').value='';document.getElementById('newTripModal').classList.add('open');setTimeout(()=>document.getElementById('nt-name').focus(),350);}
+function closeNewTrip(){document.getElementById('newTripModal').classList.remove('open');}
+function createTrip(){
+  const name=document.getElementById('nt-name').value.trim();
+  if(!name){document.getElementById('nt-name').focus();return;}
+  const id='trip_'+Date.now();
+  const t=defaultTrip(id,name,document.getElementById('nt-start').value,document.getElementById('nt-end').value,document.getElementById('nt-loc1').value.trim(),document.getElementById('nt-loc2').value.trim());
+  TRIPS_INDEX.push({id,name,startDate:t.startDate,endDate:t.endDate,status:'planned'});
+  saveIndex();lsSet(LS_PFX+id,t);sbSet('trip_'+id,t);
+  closeNewTrip();openTrip(id);
+}
+
+async function openTrip(id){
+  CURRENT_TRIP_ID=id;
+  CURRENT_TRIP=await loadTrip(id);
+  lsSet(LS_PFX+id,CURRENT_TRIP);
+  document.getElementById('home-screen').style.display='none';
+  document.getElementById('planner-screen').style.display='flex';
+  document.getElementById('planner-screen').style.flexDirection='column';
+  mapReady=false;mapFilter='all';
+  if(lmap){lmap.remove();lmap=null;}
+  markers=[];campM=[];routeM=[];routeLines=[];
+  showPTab('w1',document.getElementById('ptab-w1'));
+  renderPlanner();
+}
+function goHome(){
+  CURRENT_TRIP_ID=null;CURRENT_TRIP=null;
+  document.getElementById('planner-screen').style.display='none';
+  document.getElementById('home-screen').style.display='flex';
+  document.getElementById('home-screen').style.flexDirection='column';
+  renderHome();
+}
+
+// ── DATE HELPERS ──────────────────────────────────────────
+const NLD=['zo','ma','di','wo','do','vr','za'];
+const NLM=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+const NLML=['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+function pd(s){const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);}
+function dk(dt){return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;}
+function fmtDate(k){const[y,m,d]=k.split('-').map(Number);const dt=new Date(y,m-1,d);return`${NLD[dt.getDay()]} ${d} ${NLML[m-1]}`;}
+function fmtShort(k){const[,m,d]=k.split('-').map(Number);return`${d} ${NLM[m-1]}`;}
+function fmtDateRange(s,e){const sd=pd(s),ed=pd(e);if(sd.getMonth()===ed.getMonth())return`${sd.getDate()}–${ed.getDate()} ${NLML[sd.getMonth()]} ${sd.getFullYear()}`;return`${sd.getDate()} ${NLM[sd.getMonth()]} – ${ed.getDate()} ${NLM[ed.getMonth()]} ${sd.getFullYear()}`;}
+function getDays(){if(!CURRENT_TRIP?.startDate||!CURRENT_TRIP?.endDate)return[];const days=[];let cur=pd(CURRENT_TRIP.startDate);const end=pd(CURRENT_TRIP.endDate);while(cur<=end){days.push(dk(cur));cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1);}return days;}
+function getHalves(){const all=getDays();const mid=Math.ceil(all.length/2);return{w1:all.slice(0,mid),w2:all.slice(mid)};}
+function tagLabel(t){return{eten:'🍽 Eten',bezicht:'👁 Bezienswaard.',cultuur:'🏛 Cultuur',natuur:'🌿 Natuur',reis:'🚂 Vervoer',rust:'☀️ Vrije tijd',stop:'🛑 Tussenstop',overnachting:'🌙 Overnachting',start:'📍 Beginpunt',eind:'🏁 Eindpunt'}[t]||t;}
+
+// ── PLANNER RENDER ────────────────────────────────────────
+function renderPlanner(){
+  if(!CURRENT_TRIP)return;
+  const T=CURRENT_TRIP;
+  const archived=T.status==='archived';
+  document.getElementById('ph-title').textContent=T.name||'Vakantie';
+  document.getElementById('ph-dates').textContent=T.startDate&&T.endDate?fmtDateRange(T.startDate,T.endDate):'Datum niet ingesteld';
+  document.getElementById('ph-archive-badge').style.display=archived?'inline':'none';
+  document.getElementById('ptab1-loc').textContent=T.loc1||'Week 1';
+  document.getElementById('ptab2-loc').textContent=T.loc2||'Week 2';
+  const{w1,w2}=getHalves();
+  document.getElementById('pw1-title').textContent=`Week 1 — ${T.loc1||'Locatie A'}`;
+  document.getElementById('pw2-title').textContent=`Week 2 — ${T.loc2||'Locatie B'}`;
+  if(w1.length)document.getElementById('pw1-sub').textContent=`${fmtShort(w1[0])} t/m ${fmtShort(w1[w1.length-1])} · ${w1.length} nachten`;
+  if(w2.length)document.getElementById('pw2-sub').textContent=`${fmtShort(w2[0])} t/m ${fmtShort(w2[w2.length-1])} · ${w2.length} nachten`;
+  renderDays(w1,'days-w1','w1');
+  renderDays(w2,'days-w2','w2');
+  renderRoute();
+  renderHighlights();
+  // Settings
+  document.getElementById('sp-name').value=T.name||'';
+  document.getElementById('sp-start').value=T.startDate||'';
+  document.getElementById('sp-end').value=T.endDate||'';
+  document.getElementById('sp-loc1').value=T.loc1||'';
+  document.getElementById('sp-loc2').value=T.loc2||'';
+  document.getElementById('sp-camp1').value=T.camp1||'';
+  document.getElementById('sp-camp2').value=T.camp2||'';
+  document.getElementById('sp-archive-btn').textContent=archived?'Herstel als actief':'Archiveer reis';
+  spPreview();
+  // Disable editing in archive mode
+  document.querySelectorAll('#planner-body .icon-btn,.add-act-btn,.route-add-btn,#ptab-w1,#ptab-w2').forEach(el=>{
+    if(!archived)el.removeAttribute('disabled');
+  });
+}
+
+function renderDays(days,cid,cls){
+  const c=document.getElementById(cid);c.innerHTML='';
+  if(!days.length){c.innerHTML='<p style="font-size:0.8rem;color:var(--ink3);padding:0.5rem">Stel een datumbereik in via ⚙ Instellingen.</p>';return;}
+  days.forEach(key=>{
+    if(!CURRENT_TRIP.days[key])CURRENT_TRIP.days[key]={title:'Vrije dag',activities:[],note:''};
+    c.appendChild(buildDayCard(key,CURRENT_TRIP.days[key],cls));
+  });
+}
+
+function buildDayCard(key,day,cls){
+  const archived=CURRENT_TRIP.status==='archived';
+  const wrap=document.createElement('div');wrap.className='day-card';wrap.id=`card-${key}`;
+  const head=document.createElement('div');head.className='day-head';
+  head.innerHTML=`<div class="day-dot ${cls}"></div>
+    <div class="day-info"><div class="day-name" id="dn-${key}">${day.title||'Vrije dag'}</div><div class="day-date">${fmtDate(key)}</div></div>
+    <div class="day-actions">
+      ${!archived?`<button class="icon-btn" onclick="event.stopPropagation();openDayEdit('${key}')">✎</button>
+      <button class="icon-btn" onclick="event.stopPropagation();openNewAct('${key}')">+ Activiteit</button>`:''}
+      <span class="chev open" id="cv-${key}">▼</span>
+    </div>`;
+  head.addEventListener('click',()=>toggleDay(key));
+  const body=document.createElement('div');body.className='day-body';body.id=`db-${key}`;
+  // Note
+  const noteDiv=document.createElement('div');
+  noteDiv.className='day-note-area';noteDiv.id=`note-area-${key}`;
+  renderNoteArea(noteDiv,key,day.note||'',archived);
+  body.appendChild(noteDiv);
+  // Activities
+  const acts=day.activities||[];
+  if(!acts.length&&!archived){body.innerHTML+=`<div class="empty-day">Geen activiteiten<br><button class="add-act-btn" onclick="openNewAct('${key}')">+ Voeg toe</button></div>`;}
+  else acts.forEach(a=>body.appendChild(buildAct(key,a,archived)));
+  if(acts.length&&!archived){const r=document.createElement('div');r.style.cssText='padding:0.4rem 0.85rem;';r.innerHTML=`<button class="add-act-btn" onclick="openNewAct('${key}')">+ Voeg activiteit toe</button>`;body.appendChild(r);}
+  wrap.appendChild(head);wrap.appendChild(body);
+  return wrap;
+}
+
+function renderNoteArea(div,key,note,archived){
+  div.innerHTML='';
+  if(!note&&archived)return;
+  if(note){
+    div.innerHTML=`<div class="day-note-label">Dagboek</div><div class="day-note-text" id="nt-${key}">${note}</div>${!archived?`<span class="day-note-add" onclick="editNote('${key}')">✎ bewerk notitie</span>`:''}`;
+  }else{
+    div.innerHTML=`<span class="day-note-add" onclick="editNote('${key}')">+ Dagboeknotitie toevoegen</span>`;
+  }
+}
+function editNote(key){
+  const div=document.getElementById(`note-area-${key}`);if(!div)return;
+  const cur=CURRENT_TRIP.days[key]?.note||'';
+  div.innerHTML=`<div class="day-note-label">Dagboek</div>
+    <textarea class="day-note-edit" id="note-input-${key}" placeholder="Beschrijf je dag...">${cur}</textarea>
+    <div><button class="day-note-btn" onclick="saveNote('${key}')">Opslaan</button>
+    <button class="day-note-btn" style="background:var(--cream);color:var(--ink2);margin-left:4px" onclick="cancelNote('${key}','${cur.replace(/'/g,'&#39;')}')">Annuleren</button></div>`;
+  setTimeout(()=>document.getElementById(`note-input-${key}`)?.focus(),50);
+}
+function saveNote(key){
+  const val=document.getElementById(`note-input-${key}`)?.value.trim()||'';
+  if(!CURRENT_TRIP.days[key])CURRENT_TRIP.days[key]={title:'Vrije dag',activities:[],note:''};
+  CURRENT_TRIP.days[key].note=val;
+  saveTripData(CURRENT_TRIP_ID,CURRENT_TRIP);
+  const div=document.getElementById(`note-area-${key}`);
+  renderNoteArea(div,key,val,false);
+}
+function cancelNote(key,old){
+  const div=document.getElementById(`note-area-${key}`);
+  renderNoteArea(div,key,old,false);
+}
+
+function buildAct(dayKey,act,archived){
+  const div=document.createElement('div');div.className='activity';div.id=`act-${act.id}`;
+  const url=act.maps?`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(act.maps)}`:'';
+  const isHl=act.highlight?true:false;
+  div.innerHTML=`<div class="act-time">${act.time||''}</div>
+    <div class="act-body">
+      <div class="act-name">${act.name||''}</div>
+      ${act.desc?`<div class="act-desc">${act.desc}</div>`:''}
+      <div class="act-foot">
+        <span class="tag tag-${act.tag||'bezicht'}">${tagLabel(act.tag)}</span>
+        ${isHl?'<span class="tag tag-highlight">★ Hoogtepunt</span>':''}
+        ${url?`<a class="nav-btn" href="${url}" target="_blank"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>Navigeer</a>`:''}
+        ${!archived?`<button class="highlight-star ${isHl?'on':''}" title="${isHl?'Verwijder hoogtepunt':'Markeer als hoogtepunt'}" onclick="toggleHighlight('${dayKey}','${act.id}')">${isHl?'★':'☆'}</button>
+        <button class="act-edit-btn" onclick="openEditAct('${dayKey}','${act.id}')">✎</button>`:''}
+      </div>
+    </div>`;
+  return div;
+}
+
+function toggleHighlight(dayKey,actId){
+  const act=CURRENT_TRIP.days[dayKey]?.activities?.find(a=>a.id===actId);if(!act)return;
+  act.highlight=!act.highlight;
+  saveTripData(CURRENT_TRIP_ID,CURRENT_TRIP);
+  rerenderDay(dayKey);
+  renderHighlights();
+}
+
+function renderHighlights(){
+  const c=document.getElementById('hl-list');c.innerHTML='';
+  const{w1,w2}=getHalves();const allDays=[...w1,...w2];
+  let found=0;
+  allDays.forEach(key=>{
+    const day=CURRENT_TRIP.days[key];if(!day)return;
+    (day.activities||[]).filter(a=>a.highlight).forEach(a=>{
+      found++;
+      const card=document.createElement('div');card.className='hl-card';
+      const url=a.maps?`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(a.maps)}`:'';
+      card.innerHTML=`<div class="hl-name">★ ${a.name||''}</div>
+        <div class="hl-meta">${fmtDate(key)}${a.time?' · '+a.time:''}</div>
+        ${a.desc?`<div class="hl-desc">${a.desc}</div>`:''}
+        ${url?`<a class="nav-btn" href="${url}" target="_blank" style="margin-top:6px;display:inline-flex"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>Navigeer</a>`:''}`;
+      c.appendChild(card);
+    });
+  });
+  // Notes
+  const noteTitle=document.createElement('div');noteTitle.className='section-title';noteTitle.style.marginTop='1.2rem';noteTitle.textContent='Dagboek';c.appendChild(noteTitle);
+  let noteFound=0;
+  allDays.forEach(key=>{
+    const day=CURRENT_TRIP.days[key];if(!day?.note)return;
+    noteFound++;
+    const card=document.createElement('div');card.className='archive-note-card';
+    card.innerHTML=`<div class="archive-day-title">${fmtDate(key)}</div><div class="archive-note-text">${day.note}</div>`;
+    c.appendChild(card);
+  });
+  if(!noteFound){const p=document.createElement('p');p.style.cssText='font-size:0.78rem;color:var(--ink3);padding:0.3rem 0';p.textContent='Nog geen dagboeknotities.';c.appendChild(p);}
+}
+
+// ── COLLAPSE ──────────────────────────────────────────────
+const collapsed=new Set();
+function toggleDay(key){const b=document.getElementById(`db-${key}`),c=document.getElementById(`cv-${key}`);if(!b)return;if(collapsed.has(key)){b.style.display='';c.classList.add('open');collapsed.delete(key);}else{b.style.display='none';c.classList.remove('open');collapsed.add(key);}}
+
+// ── TABS ──────────────────────────────────────────────────
+let mapReady=false;
+function showPTab(id,btn){
+  document.querySelectorAll('#planner-nav .week-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#planner-body .week-section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('map-wrapper')?.classList.remove('active');
+  if(id==='map'){
+    document.getElementById('ps-map').classList.add('active');
+    document.getElementById('map-wrapper').classList.add('active');
+    if(!mapReady){initMap();mapReady=true;}else refreshPins();
+  }else{
+    const sec=document.getElementById('ps-'+id);if(sec)sec.classList.add('active');
+  }
+  btn.classList.add('active');
+  if(id!=='map')window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── DAY EDIT ──────────────────────────────────────────────
+function openDayEdit(key){const ex=document.getElementById(`de-${key}`);if(ex){ex.remove();return;}const body=document.getElementById(`db-${key}`);const row=document.createElement('div');row.className='day-title-edit';row.id=`de-${key}`;row.innerHTML=`<input type="text" id="dei-${key}" value="${CURRENT_TRIP.days[key]?.title||''}" placeholder="Dagtitel..." maxlength="60"><button onclick="saveDayTitle('${key}')">OK</button><button class="dte-c" onclick="document.getElementById('de-${key}').remove()">✕</button>`;body.parentNode.insertBefore(row,body);document.getElementById(`dei-${key}`).focus();}
+function saveDayTitle(key){const v=document.getElementById(`dei-${key}`).value.trim();if(!CURRENT_TRIP.days[key])CURRENT_TRIP.days[key]={title:'Vrije dag',activities:[],note:''};CURRENT_TRIP.days[key].title=v||'Vrije dag';saveTripData(CURRENT_TRIP_ID,CURRENT_TRIP);document.getElementById(`dn-${key}`).textContent=CURRENT_TRIP.days[key].title;document.getElementById(`de-${key}`)?.remove();}
+
+// ── ACTIVITY MODAL ────────────────────────────────────────
+let curDay=null,curActId=null;
+function openNewAct(key){curDay=key;curActId=null;document.getElementById('act-modal-title').textContent=`Activiteit — ${fmtShort(key)}`;['f-time','f-name','f-desc','f-maps'].forEach(i=>document.getElementById(i).value='');document.getElementById('f-tag').value='bezicht';document.getElementById('act-del-btn').style.display='none';document.getElementById('actModal').classList.add('open');setTimeout(()=>document.getElementById('f-name').focus(),350);}
+function openEditAct(key,id){curDay=key;curActId=id;const act=CURRENT_TRIP.days[key]?.activities?.find(a=>a.id===id);if(!act)return;document.getElementById('act-modal-title').textContent='Activiteit bewerken';document.getElementById('f-time').value=act.time||'';document.getElementById('f-name').value=act.name||'';document.getElementById('f-desc').value=act.desc||'';document.getElementById('f-maps').value=act.maps||'';document.getElementById('f-tag').value=act.tag||'bezicht';document.getElementById('act-del-btn').style.display='';document.getElementById('actModal').classList.add('open');}
+function closeActModal(){document.getElementById('actModal').classList.remove('open');}
+function saveActivity(){const name=document.getElementById('f-name').value.trim();if(!name){document.getElementById('f-name').focus();return;}if(!CURRENT_TRIP.days[curDay])CURRENT_TRIP.days[curDay]={title:'Vrije dag',activities:[],note:''};const acts=CURRENT_TRIP.days[curDay].activities;const mv=document.getElementById('f-maps').value.trim();if(curActId){const o=acts.find(a=>a.id===curActId);if(o?.maps)delete geoCache[o.maps];}if(mv)delete geoCache[mv];const act={id:curActId||'a'+Date.now(),time:document.getElementById('f-time').value,name,desc:document.getElementById('f-desc').value.trim(),maps:mv,tag:document.getElementById('f-tag').value,highlight:curActId?acts.find(a=>a.id===curActId)?.highlight||false:false};if(curActId){const i=acts.findIndex(a=>a.id===curActId);if(i>=0)acts[i]=act;}else acts.push(act);acts.sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));saveTripData(CURRENT_TRIP_ID,CURRENT_TRIP);rerenderDay(curDay);closeActModal();}
+function deleteActivity(){if(!confirm('Verwijderen?'))return;const act=CURRENT_TRIP.days[curDay]?.activities?.find(a=>a.id===curActId);if(act?.maps)delete geoCache[act.maps];CURRENT_TRIP.days[curDay].activities=CURRENT_TRIP.days[curDay].activities.filter(a=>a.id!==curActId);saveTripData(CURRENT_TRIP_ID,CURRENT_TRIP);rerenderDay(curDay);closeActModal();}
+function rerenderDay(key){const old=document.getElementById(`card-${key}`);if(!old)return;const{w1}=getHalves();const cls=w1.includes(key)?'w1':'w2';old.replaceWith(buildDayCard(key,CURRENT_TRIP.days[key]||{title:'Vrije dag',activities:[],note:''},cls));if(collapsed.has(key)){const b=document.getElementById(`db-${key}`),c=document.getElementById(`cv-${key}`);if(b)b.style.display='none';if(c)c.classList.remove('open');}}
+
+// ── ROUTE ─────────────────────────────────────────────────
+function renderRoute(){renderEp('heen','start');renderStops('heen');renderEp('heen','eind');renderEp('terug','start');renderStops('terug');renderEp('terug','eind');}
+function renderEp(leg,type){
+  const c=document.getElementById(`ep-${leg}-${type}`);if(!c)return;
+  const k=`${leg}${type==='start'?'Start':'Eind'}`;
+  const ep=CURRENT_TRIP.route?.[k]||{name:'',maps:''};
+  const label=type==='start'?'📍 Beginpunt':'🏁 Eindpunt';
+  const cls=type==='start'?'stop-start':'stop-eind';
+  const icon=type==='start'?'A':'B';
+  const url=ep.maps?`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(ep.maps)}`:'';
+  const archived=CURRENT_TRIP.status==='archived';
+  c.innerHTML=`<div class="route-stop route-endpoint"><div class="stop-num ${cls}">${icon}</div><div class="act-body"><div class="act-name">${ep.name||'—'}</div><div class="act-foot" style="margin-top:4px"><span class="tag tag-${type==='start'?'start':'eind'}">${label}</span>${url?`<a class="nav-btn" href="${url}" target="_blank"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>Navigeer</a>`:''}${!archived?`<button class="act-edit-btn" onclick="openEditEp('${leg}','${type}')">✎</button>`:''}
+  </div></div></div>`;
+}
+function renderStops(leg){
+  const c=document.getElementById(`stops-${leg}`);c.innerHTML='';
+  const stops=(CURRENT_TRIP.route||{})[leg]||[];
+  const archived=CURRENT_TRIP.status==='archived';
+  if(!stops.length){c.innerHTML=`<div class="route-empty">Nog geen tussenstops.</div>`;return;}
+  stops.forEach((s,i)=>{
+    const div=document.createElement('div');div.className='route-stop';
+    const url=s.maps?`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(s.maps)}`:'';
+    div.innerHTML=`<div class="stop-num">${i+1}</div><div class="act-body"><div class="act-name">${s.name||''}</div>${s.drive?`<div style="font-size:0.7rem;color:var(--ink3);margin-bottom:3px">🚗 ${s.drive}</div>`:''} ${s.desc?`<div class="act-desc">${s.desc}</div>`:''}<div class="act-foot"><span class="tag tag-${s.tag||'stop'}">${tagLabel(s.tag||'stop')}</span>${url?`<a class="nav-btn" href="${url}" target="_blank"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>Navigeer</a>`:''}${!archived?`<button class="act-edit-btn" onclick="openEditStop('${leg}','${s.id}')">✎</button>`:''}
+    </div></div>`;
+    c.appendChild(div);
+  });
+}
+let curLeg=null,curStopId=null;
+function openEditEp(leg,type){const k=`${leg}${type==='start'?'Start':'Eind'}`;const ep=CURRENT_TRIP.route?.[k]||{name:'',maps:''};document.getElementById('stop-modal-title').textContent=`${type==='start'?'Beginpunt':'Eindpunt'} — ${leg==='heen'?'heenreis':'terugreis'}`;document.getElementById('s-name').value=ep.name||'';document.getElementById('s-desc').value=ep.desc||'';document.getElementById('s-maps').value=ep.maps||'';document.getElementById('s-drive').value='';document.getElementById('s-tag').value=type==='start'?'start':'eind';curLeg=leg;curStopId='__ep__'+type;document.getElementById('stop-del-btn').style.display='none';document.getElementById('stopModal').classList.add('open');setTimeout(()=>document.getElementById('s-name').focus(),350);}
+function openNewStop(leg){curLeg=leg;curStopId=null;document.getElementById('stop-modal-title').textContent=`Tussenstop — ${leg==='heen'?'heenreis':'terugreis'}`;['s-name','s-desc','s-maps','s-drive'].forEach(i=>document.getElementById(i).value='');document.getElementById('s-tag').value='stop';document.getElementById('stop-del-btn').style.display='none';document.getElementById('stopModal').classList.add('open');setTimeout(()=>document.getElementById('s-name').focus(),350);}
+function openEditStop(leg,id){curLeg=leg;curStopId=id;const s=CURRENT_TRIP.route?.[leg]?.find(x=>x.id===id);if(!s)return;document.getElementById('stop-modal-title').textContent='Stop bewerken';document.getElementById('s-name').value=s.name||'';document.getElementById('s-desc').value=s.desc||'';document.getElementById('s-maps').value=s.maps||'';document.getElementById('s-drive').value=s.drive||'';document.getElementById('s-tag').value=s.tag||'stop';document.getElementById('stop-del-btn').style.display='';document.getElementById('stopModal').classList.add('open');}
+function closeStopModal(){document.getElementById('stopModal').classList.remove('open');}
+function saveStop(){const name=document.getElementById('s-name').value.trim();if(!name){document.getElementById('s-name').focus();return;}if(!CURRENT_TRIP.route)CURRENT_TRIP.route={heen:[],terug:[]};if(curStopId?.startsWith('__ep__')){const type=curStopId.replace('__ep__','');const k=`${curLeg}${type==='start'?'Start':'Eind'}`;const mv=document.getElementById('s-maps').value.trim();if(CURRENT_TRIP.route[k]?.maps)delete geoCache[CURRENT_TRIP.route[k].maps];if(mv)delete geoCache[mv];CURRENT_TRIP.route[k]={name,desc:document.getElementById('s-desc').value.trim(),maps:mv};saveTripData(CURRENT_TRIP_ID,CURRENT_TRIP);renderRoute();closeStopModal();return;}const stops=CURRENT_TRIP.route[curLeg];const mv=document.getElementById('s-maps').value.trim();if(curStopId){const o=stops.find(s=>s.id===curStopId);if(o?.maps)delete geoCache[o.maps];}if(mv)delete geoCache[mv];const s={id:curStopId||'s'+Date.now(),name,desc:document.getElementById('s-desc').value.trim(),maps:mv,drive:document.getElementById('s-drive').value.trim(),tag:document.getElementById('s-tag').value};if(curStopId){const i=stops.findIndex(x=>x.id===curStopId);if(i>=0)stops[i]=s;}else stops.push(s);saveTripData(CURRENT_TRIP_ID,CURRENT_TRIP);renderRoute();closeStopModal();}
+function deleteStop(){if(!confirm('Verwijderen?'))return;const s=CURRENT_TRIP.route?.[curLeg]?.find(x=>x.id===curStopId);if(s?.maps)delete geoCache[s.maps];CURRENT_TRIP.route[curLeg]=CURRENT_TRIP.route[curLeg].filter(x=>x.id!==curStopId);saveTripData(CURRENT_TRIP_ID,CURRENT_TRIP);renderRoute();closeStopModal();}
+
+// ── SETTINGS ──────────────────────────────────────────────
+function spPreview(){const s=document.getElementById('sp-start')?.value;const e=document.getElementById('sp-end')?.value;const el=document.getElementById('sp-preview');if(!el)return;if(s&&e&&s<e){const n=Math.round((new Date(e)-new Date(s))/(864e5))+1;el.textContent=`${n} dagen — verdeeld over 2 weken`;el.style.color='#4a7c59';}else el.textContent='';}
+function saveTripSettings(){const ns=document.getElementById('sp-start').value;const ne=document.getElementById('sp-end').value;if(ns&&ne&&ns>=ne){alert('Einddatum moet na begindatum liggen.');return;}const nc1=document.getElementById('sp-camp1').value.trim();const nc2=document.getElementById('sp-camp2').value.trim();if(nc1!==CURRENT_TRIP.camp1){delete geoCache[CURRENT_TRIP.camp1||''];osrmCache={};}if(nc2!==CURRENT_TRIP.camp2){delete geoCache[CURRENT_TRIP.camp2||''];osrmCache={};}CURRENT_TRIP.name=document.getElementById('sp-name').value.trim()||'Vakantie';if(ns)CURRENT_TRIP.startDate=ns;if(ne)CURRENT_TRIP.endDate=ne;CURRENT_TRIP.loc1=document.getElementById('sp-loc1').value.trim()||'Locatie A';CURRENT_TRIP.loc2=document.getElementById('sp-loc2').value.trim()||'Locatie B';CURRENT_TRIP.camp1=nc1;CURRENT_TRIP.camp2=nc2;const meta=TRIPS_INDEX.find(t=>t.id===CURRENT_TRIP_ID);if(meta){meta.name=CURRENT_TRIP.name;meta.startDate=CURRENT_TRIP.startDate;meta.endDate=CURRENT_TRIP.endDate;}lastSave=Date.now();saveTripData(CURRENT_TRIP_ID,CURRENT_TRIP);saveIndex();renderPlanner();}
+function toggleArchive(){const meta=TRIPS_INDEX.find(t=>t.id===CURRENT_TRIP_ID);if(!meta)return;const newStatus=CURRENT_TRIP.status==='archived'?'planned':'archived';CURRENT_TRIP.status=newStatus;meta.status=newStatus;saveTripData(CURRENT_TRIP_ID,CURRENT_TRIP);saveIndex();renderPlanner();}
+function deleteTrip(){if(!confirm(`Reis "${CURRENT_TRIP.name}" permanent verwijderen? Dit kan niet ongedaan gemaakt worden.`))return;TRIPS_INDEX=TRIPS_INDEX.filter(t=>t.id!==CURRENT_TRIP_ID);saveIndex();sbDel('trip_'+CURRENT_TRIP_ID);localStorage.removeItem(LS_PFX+CURRENT_TRIP_ID);goHome();}
+
+// ── MAP ───────────────────────────────────────────────────
+let lmap=null,markers=[],campM=[],routeM=[],routeLines=[],mapFilter='all';
+const geoCache={};let osrmCache={};
+function initMap(){lmap=L.map('leaflet-map',{zoomControl:true});L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{attribution:'© <a href="https://openstreetmap.org">OSM</a> © <a href="https://carto.com">CARTO</a>',subdomains:'abcd',maxZoom:20}).addTo(lmap);refreshPins();}
+async function geocode(q){if(!q)return null;if(geoCache[q]!==undefined)return geoCache[q];try{const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,{headers:{'Accept-Language':'nl,en','User-Agent':'VakantieplannerApp/1.0'}});const d=await r.json();if(d&&d[0]){const v={lat:+d[0].lat,lng:+d[0].lon};geoCache[q]=v;return v;}}catch(e){}geoCache[q]=null;return null;}
+async function getOSRM(f,t,ck){if(osrmCache[ck]!==undefined)return osrmCache[ck];try{const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${f.lng},${f.lat};${t.lng},${t.lat}?overview=false`);const d=await r.json();if(d.code==='Ok'&&d.routes?.[0]){const m=Math.round(d.routes[0].duration/60);const l=m<60?`${m} min`:`${Math.floor(m/60)}u${m%60?` ${m%60}m`:''}`;osrmCache[ck]=l;return l;}}catch(e){}osrmCache[ck]=null;return null;}
+
+function mkPin(week,label,isHl){
+  const col=isHl?'#d97706':week===1?'#c47c5a':'#4a7c59';
+  const pin=`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="32" viewBox="0 0 24 32"><path d="M12 0C5.37 0 0 5.37 0 12c0 8.4 12 20 12 20S24 20.4 24 12C24 5.37 18.63 0 12 0z" fill="${col}"/><circle cx="12" cy="12" r="${isHl?6:5}" fill="white" opacity="0.95"/>${isHl?`<text x="12" y="16" text-anchor="middle" font-size="8" fill="${col}" font-weight="bold">★</text>`:''}</svg>`;
+  const lbl=label?`<div style="position:absolute;bottom:34px;left:50%;transform:translateX(-50%);white-space:nowrap;background:${col};color:#fff;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:600;padding:2px 6px;border-radius:8px">🚗 ${label}</div>`:'';
+  return L.divIcon({html:`<div style="position:relative;display:inline-block;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))">${pin}</div>${lbl}`,iconSize:[24,32],iconAnchor:[12,32],popupAnchor:[0,-34],className:''});
+}
+function mkCampPin(week){const col=week===1?'#c47c5a':'#4a7c59';const sz=38;const h=sz/2;const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}"><circle cx="${h}" cy="${h}" r="${h-1}" fill="${col}" stroke="white" stroke-width="2"/><polygon points="${h},${h-9} ${h-11},${h+7} ${h},${h+7}" fill="white" opacity="0.95"/><polygon points="${h},${h-9} ${h+11},${h+7} ${h},${h+7}" fill="white" opacity="0.7"/><path d="M${h-4},${h+7} Q${h},${h+2} ${h+4},${h+7}Z" fill="${col}"/><line x1="${h-12}" y1="${h+7}" x2="${h+12}" y2="${h+7}" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>`;return L.divIcon({html:`<div style="filter:drop-shadow(0 3px 6px rgba(0,0,0,0.35))">${svg}</div>`,iconSize:[sz,sz],iconAnchor:[h,h],popupAnchor:[0,-h-2],className:''});}
+function mkRoutePin(idx,tag){const col=tag==='start'?'#1e6b3c':tag==='eind'?'#9b1c1c':'#5a6ea0';const sz=tag==='start'||tag==='eind'?32:26;const h=sz/2;const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}"><circle cx="${h}" cy="${h}" r="${h-1}" fill="${col}" stroke="white" stroke-width="2"/><text x="${h}" y="${h+4}" text-anchor="middle" font-size="${sz>28?12:10}" font-weight="bold" fill="white" font-family="DM Sans,sans-serif">${idx}</text></svg>`;return L.divIcon({html:`<div style="filter:drop-shadow(0 2px 5px rgba(0,0,0,0.3))">${svg}</div>`,iconSize:[sz,sz],iconAnchor:[h,h],popupAnchor:[0,-h-3],className:''});}
+
+function navSvg(){return`<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>`;}
+
+async function refreshPins(){
+  if(!lmap||!CURRENT_TRIP)return;
+  [...markers,...campM,...routeM].forEach(m=>lmap.removeLayer(m));
+  routeLines.forEach(l=>lmap.removeLayer(l));
+  markers=[];campM=[];routeM=[];routeLines=[];
+  const T=CURRENT_TRIP;
+  const{w1,w2}=getHalves();
+  const weekOf=k=>w1.includes(k)?1:2;
+  const showW=mapFilter==='all'||mapFilter==='w1'||mapFilter==='w2';
+  const showR=mapFilter==='all'||mapFilter==='route';
+  const showH=mapFilter==='all'||mapFilter==='highlights';
+  const bounds=[];
+  document.getElementById('map-st').textContent='laden…';
+
+  // Camps
+  if(showW){for(const wk of[1,2]){const addr=wk===1?T.camp1:T.camp2;if(!addr)continue;const co=await geocode(addr);if(!co)continue;if(mapFilter==='all'||mapFilter===`w${wk}`){const wl=wk===1?(T.loc1||'Week 1'):(T.loc2||'Week 2');const cm=L.marker([co.lat,co.lng],{icon:mkCampPin(wk),zIndexOffset:900});cm.bindPopup(`<div class="lp-badge lp-w${wk}">${wl}</div><div class="lp-name">Camping / vertrekpunt</div><div class="lp-sub">${addr}</div>`,{maxWidth:220});cm.addTo(lmap);campM.push(cm);bounds.push([co.lat,co.lng]);}}}
+
+  // Activity pins
+  if(showW){
+    const locs=[];
+    Object.entries(T.days||{}).forEach(([key,day])=>{(day.activities||[]).forEach(act=>{if(act.maps?.trim()&&(mapFilter==='all'||(mapFilter===`w${weekOf(key)}`)||(!showH&&act.highlight)))locs.push({week:weekOf(key),name:act.name,desc:act.desc||'',maps:act.maps.trim(),time:act.time||'',date:fmtDate(key),key,actId:act.id,highlight:act.highlight||false});});});
+    for(const loc of locs){
+      if(mapFilter==='highlights'&&!loc.highlight)continue;
+      if((mapFilter==='w1'&&loc.week!==1)||(mapFilter==='w2'&&loc.week!==2))continue;
+      const co=await geocode(loc.maps);if(!co)continue;bounds.push([co.lat,co.lng]);
+      const base=loc.week===1?await geocode(T.camp1||''):await geocode(T.camp2||'');
+      let tLabel=null;if(base){const ck=`${loc.week}|${base.lat},${base.lng}|${co.lat},${co.lng}`;tLabel=await getOSRM(base,co,ck);}
+      const campFrom=loc.week===1?T.camp1:T.camp2;
+      const navUrl=campFrom?`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(campFrom)}&destination=${encodeURIComponent(loc.maps)}`:`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(loc.maps)}`;
+      const wl=loc.week===1?(T.loc1||'Week 1'):(T.loc2||'Week 2');
+      const popup=`<div class="lp-badge ${loc.highlight?'lp-hl':'lp-w'+loc.week}">${loc.highlight?'★ Hoogtepunt':wl}</div><div class="lp-name">${loc.name}</div><div class="lp-sub">${loc.time?loc.time+' · ':''}${loc.date}</div>${tLabel?`<div class="lp-travel">🚗 ${tLabel} vanaf camping</div>`:''}${loc.desc?`<div class="lp-desc">${loc.desc}</div>`:''}<a class="lp-nav" href="${navUrl}" target="_blank">${navSvg()}Navigeer</a>`;
+      const m=L.marker([co.lat,co.lng],{icon:mkPin(loc.week,tLabel,loc.highlight)}).bindPopup(popup,{maxWidth:240});m.addTo(lmap);markers.push(m);
+    }
+  }
+
+  // Route stops
+  if(showR){
+    const rtLocs=[];
+    ['heen','terug'].forEach(leg=>{
+      const sk=`${leg}Start`,ek=`${leg}Eind`;
+      const sp=T.route?.[sk],ep=T.route?.[ek];
+      if(sp?.maps?.trim())rtLocs.push({leg,idx:'A',name:sp.name||'Beginpunt',desc:sp.desc||'',maps:sp.maps.trim(),drive:'',tag:'start'});
+      (T.route?.[leg]||[]).forEach((s,i)=>{if(s.maps?.trim())rtLocs.push({leg,idx:i+1,name:s.name,desc:s.desc||'',maps:s.maps.trim(),drive:s.drive||'',tag:s.tag||'stop'});});
+      if(ep?.maps?.trim())rtLocs.push({leg,idx:'B',name:ep.name||'Eindpunt',desc:ep.desc||'',maps:ep.maps.trim(),drive:'',tag:'eind'});
+    });
+    const prev={heen:null,terug:null};
+    for(const s of rtLocs){
+      const co=await geocode(s.maps);if(!co)continue;bounds.push([co.lat,co.lng]);
+      if(prev[s.leg]){const line=L.polyline([prev[s.leg],[co.lat,co.lng]],{color:'#5a6ea0',weight:2.5,dashArray:'6 4',opacity:0.65});line.addTo(lmap);routeLines.push(line);}
+      prev[s.leg]=[co.lat,co.lng];
+      const ll=s.leg==='heen'?'Heenreis':'Terugreis';
+      const navUrl=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(s.maps)}`;
+      const popup=`<div class="lp-badge lp-route">${ll}</div><div class="lp-name">${s.name}</div>${s.drive?`<div class="lp-travel">🚗 ${s.drive}</div>`:''}${s.desc?`<div class="lp-desc">${s.desc}</div>`:''}<a class="lp-nav" href="${navUrl}" target="_blank">${navSvg()}Navigeer</a>`;
+      const m=L.marker([co.lat,co.lng],{icon:mkRoutePin(s.idx,s.tag),zIndexOffset:s.tag==='start'||s.tag==='eind'?400:0}).bindPopup(popup,{maxWidth:230});m.addTo(lmap);routeM.push(m);
+    }
+  }
+  const tot=markers.length+campM.length+routeM.length;
+  document.getElementById('map-st').textContent=tot?`${tot} locatie${tot!==1?'s':''}`:mapFilter==='highlights'?'geen hoogtepunten met locatie':'geen locaties';
+  if(!bounds.length){document.getElementById('leaflet-map').style.visibility='hidden';document.getElementById('map-empty').style.display='flex';return;}
+  document.getElementById('leaflet-map').style.visibility='visible';document.getElementById('map-empty').style.display='none';
+  if(bounds.length===1)lmap.setView(bounds[0],13);else lmap.fitBounds(bounds,{padding:[50,50],maxZoom:14});
+}
+
+function setMapFilter(f){
+  mapFilter=f;
+  ['all','w1','w2','route','hl'].forEach(x=>document.getElementById('mf-'+x).className='mfbtn'+(f===x||(f==='highlights'&&x==='hl')?` on-${f==='highlights'?'hl':f}`:''));
+  document.getElementById('mf-all').className='mfbtn'+(f==='all'?' on-all':'');
+  document.getElementById('mf-w1').className='mfbtn'+(f==='w1'?' on-w1':'');
+  document.getElementById('mf-w2').className='mfbtn'+(f==='w2'?' on-w2':'');
+  document.getElementById('mf-route').className='mfbtn'+(f==='route'?' on-route':'');
+  document.getElementById('mf-hl').className='mfbtn'+(f==='highlights'?' on-all':'');
+  refreshPins();
+}
+
+// ── AUTH ──────────────────────────────────────────────────
+let AUTH_MODE='login';
+function showAuth(){document.getElementById('auth-screen').style.display='flex';document.getElementById('home-screen').style.display='none';document.getElementById('planner-screen').style.display='none';}
+function hideAuth(){document.getElementById('auth-screen').style.display='none';}
+function toggleAuthMode(){
+  AUTH_MODE=AUTH_MODE==='login'?'signup':'login';
+  document.getElementById('auth-submit').textContent=AUTH_MODE==='login'?'Inloggen':'Account aanmaken';
+  document.getElementById('auth-subtitle').textContent=AUTH_MODE==='login'?'Log in om je planning te bekijken':'Maak een account aan';
+  document.getElementById('auth-toggle-text').textContent=AUTH_MODE==='login'?'Nog geen account?':'Al een account?';
+  document.getElementById('auth-toggle-link').textContent=AUTH_MODE==='login'?'Registreer':'Inloggen';
+  document.getElementById('auth-err').style.display='none';
+}
+function authErr(msg){const e=document.getElementById('auth-err');e.textContent=msg;e.style.display='block';}
+async function doAuth(){
+  const email=document.getElementById('auth-email').value.trim();
+  const password=document.getElementById('auth-password').value;
+  if(!email||!password){authErr('Vul email en wachtwoord in.');return;}
+  if(!SB_URL||!SB_KEY){authErr('Supabase niet geconfigureerd. Zie README.');return;}
+  document.getElementById('auth-err').style.display='none';
+  const endpoint=AUTH_MODE==='login'?'token?grant_type=password':'signup';
+  try{
+    const r=await fetch(`${SB_URL}/auth/v1/${endpoint}`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({email,password})});
+    const d=await r.json();
+    if(!r.ok){authErr(d.msg||d.error_description||d.error||'Inloggen mislukt');return;}
+    if(d.access_token&&d.user){applySession(d);}
+    else if(AUTH_MODE==='signup'){authErr('Account aangemaakt — check je mail om te bevestigen, daarna kun je inloggen.');AUTH_MODE='login';toggleAuthMode();}
+  }catch(e){authErr('Netwerkfout — probeer opnieuw.');}
+}
+function applySession(session){
+  SB_USER=session.user;
+  SB_TOKEN=session.access_token;
+  localStorage.setItem('vp_session',JSON.stringify({user:session.user,access_token:session.access_token,refresh_token:session.refresh_token,expires_at:session.expires_at}));
+  document.getElementById('user-info').textContent=session.user.email;
+  hideAuth();
+  document.getElementById('home-screen').style.display='flex';
+  document.getElementById('home-screen').style.flexDirection='column';
+  loadAll();
+}
+function doLogout(){
+  if(!confirm('Uitloggen?'))return;
+  localStorage.removeItem('vp_session');
+  SB_USER=null;SB_TOKEN=null;
+  TRIPS_INDEX=[];CURRENT_TRIP=null;CURRENT_TRIP_ID=null;
+  // Optionally clear cached local data too — comment out to keep offline copy
+  // Object.keys(localStorage).filter(k=>k.startsWith('vp_')).forEach(k=>localStorage.removeItem(k));
+  showAuth();
+}
+async function tryResumeSession(){
+  const raw=localStorage.getItem('vp_session');if(!raw)return false;
+  try{
+    const s=JSON.parse(raw);
+    // Token expired? Refresh
+    if(s.expires_at&&Date.now()/1000>s.expires_at-60){
+      const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({refresh_token:s.refresh_token})});
+      const d=await r.json();
+      if(!r.ok)return false;
+      applySession(d);return true;
+    }
+    SB_USER=s.user;SB_TOKEN=s.access_token;
+    document.getElementById('user-info').textContent=s.user.email;
+    return true;
+  }catch(e){return false;}
+}
+
+// ── INIT ──────────────────────────────────────────────────
+(async()=>{
+  // Show config warning if Supabase not set up
+  if(!SB_URL||!SB_KEY){
+    const w=document.getElementById('auth-config-warning');
+    w.innerHTML='<strong>⚠ Supabase niet geconfigureerd.</strong><br>Zie <code>config.example.js</code> in de repo om je eigen Supabase-project te koppelen.';
+    w.style.display='block';
+    showAuth();
+    return;
+  }
+  // Try to resume session
+  const ok=await tryResumeSession();
+  if(ok){
+    document.getElementById('home-screen').style.display='flex';
+    document.getElementById('home-screen').style.flexDirection='column';
+    loadAll();
+  } else {
+    showAuth();
+  }
+})();
+
+// Register service worker for PWA offline support
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(180deg,#1c1a17 0%,#2a2620 100%);z-index:9000;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;">
+  <div style="background:#fff;border-radius:18px;padding:2rem 1.5rem;max-width:380px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,0.25);">
+    <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:400;text-align:center;margin-bottom:0.3rem;">Vakantie <em style="color:#c47c5a;">Planner</em></h1>
+    <p style="text-align:center;font-size:0.82rem;color:#5a5650;margin-bottom:1.5rem;" id="auth-subtitle">Log in om je planning te bekijken</p>
+    <div id="auth-err" style="display:none;background:#fff5f5;border:1px solid #fcd0d0;color:#9b1c1c;padding:0.55rem 0.75rem;border-radius:8px;font-size:0.78rem;margin-bottom:0.9rem;"></div>
+    <div id="auth-config-warning" style="display:none;background:#fffbea;border:1px solid #f6d860;color:#78350f;padding:0.7rem 0.85rem;border-radius:8px;font-size:0.78rem;margin-bottom:0.9rem;line-height:1.5;"></div>
+    <div class="form-row"><label>E-mail</label><input type="email" id="auth-email" placeholder="naam@voorbeeld.nl" autocomplete="email"></div>
+    <div class="form-row"><label>Wachtwoord</label><input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn-primary" style="width:100%;margin-top:0.5rem;" id="auth-submit" onclick="doAuth()">Inloggen</button>
+    <div style="text-align:center;font-size:0.78rem;color:#5a5650;margin-top:0.9rem;">
+      <span id="auth-toggle-text">Nog geen account?</span>
+      <a href="#" onclick="toggleAuthMode();return false;" id="auth-toggle-link" style="color:#c47c5a;text-decoration:none;font-weight:500;">Registreer</a>
+    </div>
+  </div>
+  <p style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:1.2rem;text-align:center;max-width:380px;line-height:1.5;">Je gegevens worden opgeslagen in je eigen Supabase-database. Alleen jij en degenen die je toegang geeft kunnen ze zien.</p>
+</div>
+
+<!-- USER MENU (small button in home header) -->
+
+</body>
+</html>
